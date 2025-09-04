@@ -1,0 +1,43 @@
+{
+  "name": "photoapp-backend",
+  "version": "1.0.0",
+  "description": "Backend API pour PhotoApp - Gestion des photos avec géolocalisation",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "dev-watch": "node --watch src/server.js",
+    "setup-db": "node scripts/setup-db.js",
+    "test": "jest"
+  },
+  "keywords": [
+    "photo",
+    "api",
+    "mongodb",
+    "geolocation",
+    "express"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "gridfs-stream": "^1.1.1",
+    "helmet": "^7.1.0",
+    "joi": "^17.11.0",
+    "moment": "^2.29.4",
+    "mongoose": "^8.0.3",
+    "multer": "^1.4.5-lts.1",
+    "sharp": "^0.33.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.10",
+    "supertest": "^6.3.3"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
