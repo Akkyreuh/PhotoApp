@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Dimensions, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { PhotoAPI, Photo, API_URL } from '@/services/api';
+import { PhotoAPI, Photo, API_URL, API_BASE_URL } from '@/services/api';
 
 import { useThemeColor } from '@/hooks/useThemeColor';
 
@@ -31,10 +31,22 @@ export default function PhotosScreen() {
   const loadPhotos = async () => {
     try {
       setLoading(true);
+      console.log('🔍 Début chargement photos...');
+      console.log('🌐 API_URL utilisée:', API_URL);
+      
       const result = await PhotoAPI.getPhotos({ limit: 50 });
+      
+      console.log('📊 Réponse API reçue:', result);
+      console.log('📸 Nombre de photos:', result.data?.length || 0);
+      
+      if (result.data && result.data.length > 0) {
+        console.log('🖼️ Première photo:', result.data[0]);
+        console.log('🔗 URL miniature générée:', `${API_URL}${result.data[0].thumbnailUrl}`);
+      }
+      
       setPhotos(result.data);
     } catch (error) {
-      console.error('Erreur chargement photos:', error);
+      console.error('❌ Erreur chargement photos:', error);
     } finally {
       setLoading(false);
     }
@@ -53,16 +65,23 @@ export default function PhotosScreen() {
   };
 
   // Rendu d'une vignette d'image
-  const renderPhotoItem = ({ item }: { item: Photo }) => (
-    <TouchableOpacity onPress={() => openImage(item)} style={styles.photoItem}>
-      <Image
-        source={{ uri: `${API_URL}${item.thumbnailUrl}` }}
-        style={styles.thumbnail}
-        contentFit="cover"
-        transition={200}
-      />
-    </TouchableOpacity>
-  );
+  const renderPhotoItem = ({ item }: { item: Photo }) => {
+    const imageUri = `${API_URL}${item.thumbnailUrl}`;
+    console.log('🖼️ Rendu photo:', item.id, 'URI:', imageUri);
+    
+    return (
+      <TouchableOpacity onPress={() => openImage(item)} style={styles.photoItem}>
+        <Image
+          source={{ uri: `${API_BASE_URL}${item.thumbnailUrl}` }}
+          style={styles.thumbnail}
+          contentFit="cover"
+          transition={200}
+          onLoad={() => console.log('✅ Image chargée:', item.id)}
+          onError={(error) => console.log('❌ Erreur image:', item.id, error)}
+        />
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor }]}>
@@ -128,7 +147,7 @@ export default function PhotosScreen() {
           
           {selectedImage && (
             <Image
-              source={{ uri: `${API_URL}${selectedImage.downloadUrl}` }}
+              source={{ uri: `${API_BASE_URL}${selectedImage.downloadUrl}` }}
               style={styles.fullImage}
               contentFit="contain"
             />

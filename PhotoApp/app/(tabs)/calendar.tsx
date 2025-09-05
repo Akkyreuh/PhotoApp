@@ -218,9 +218,7 @@ export default function CalendarScreen() {
         </View>
       ) : (
         <>
-          {/* Grille du calendrier */}
           <View style={styles.calendar}>
-            {/* En-têtes des jours de la semaine */}
             <View style={styles.weekHeader}>
               {['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].map((day, index) => (
                 <Text key={index} style={[styles.weekDayText, { color: textColor }]}>
@@ -260,7 +258,7 @@ export default function CalendarScreen() {
                         onPress={() => openPhoto(item)}
                       >
                         <Image
-                          source={{ uri: `${API_URL}${item.thumbnailUrl}` }}
+                          source={{ uri: `${API_BASE_URL}${item.thumbnailUrl}` }}
                           style={styles.photoThumbnail}
                           contentFit="cover"
                           transition={200}
@@ -306,7 +304,7 @@ export default function CalendarScreen() {
           
           {selectedPhoto && (
             <Image
-              source={{ uri: `${API_URL}${selectedPhoto.downloadUrl}` }}
+              source={{ uri: `${API_BASE_URL}${selectedPhoto.downloadUrl}` }}
               style={styles.fullImage}
               contentFit="contain"
             />

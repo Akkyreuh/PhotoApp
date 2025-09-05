@@ -98,12 +98,12 @@ photoSchema.index({ tags: 1 });
 
 // Virtual pour l'URL de téléchargement
 photoSchema.virtual('downloadUrl').get(function() {
-  return `/api/photos/${this._id}/download`;
+  return `/photos/${this._id}/download`;
 });
 
 // Virtual pour l'URL de la miniature
 photoSchema.virtual('thumbnailUrl').get(function() {
-  return `/api/photos/${this._id}/thumbnail`;
+  return `/photos/${this._id}/thumbnail`;
 });
 
 // Méthode pour formater la date pour le calendrier
