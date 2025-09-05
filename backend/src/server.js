@@ -7,6 +7,7 @@ require('dotenv').config();
 
 const { connectDB } = require('./config/database');
 const photoRoutes = require('./routes/photos');
+const authRoutes = require('./routes/auth');
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
 
 const app = express();
@@ -34,6 +35,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/photos', photoRoutes);
 
 // Route de santé

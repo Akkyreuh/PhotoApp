@@ -22,6 +22,7 @@ const uploadPhoto = async (req, res) => {
       mimeType: req.file.mimetype,
       size: req.file.size,
       gridfsId: req.file.id,
+      userId: req.user.userId, // Associer la photo à l'utilisateur authentifié
       location: {
         latitude: parseFloat(latitude),
         longitude: parseFloat(longitude),
@@ -61,8 +62,8 @@ const getPhotos = async (req, res) => {
     const limitNum = parseInt(limit) || 20;
     const skip = (pageNum - 1) * limitNum;
 
-    // Construction de la requête
-    let query = {};
+    // Construction de la requête - filtrer par utilisateur authentifié
+    let query = { userId: req.user.userId };
 
     // Filtre par date
     if (startDate || endDate) {
@@ -117,7 +118,10 @@ const getPhotos = async (req, res) => {
  */
 const getPhoto = async (req, res) => {
   try {
-    const photo = await Photo.findById(req.params.id).select('-gridfsId');
+    const photo = await Photo.findOne({ 
+      _id: req.params.id, 
+      userId: req.user.userId 
+    }).select('-gridfsId');
     
     if (!photo) {
       return res.status(404).json(formatError('Photo non trouvée'));
@@ -136,7 +140,10 @@ const getPhoto = async (req, res) => {
  */
 const downloadPhoto = async (req, res) => {
   try {
-    const photo = await Photo.findById(req.params.id);
+    const photo = await Photo.findOne({ 
+      _id: req.params.id, 
+      userId: req.user.userId 
+    });
     
     if (!photo) {
       return res.status(404).json(formatError('Photo non trouvée'));
@@ -167,7 +174,10 @@ const downloadPhoto = async (req, res) => {
  */
 const getThumbnail = async (req, res) => {
   try {
-    const photo = await Photo.findById(req.params.id);
+    const photo = await Photo.findOne({ 
+      _id: req.params.id, 
+      userId: req.user.userId 
+    });
     
     if (!photo) {
       return res.status(404).json(formatError('Photo non trouvée'));
@@ -206,7 +216,10 @@ const getThumbnail = async (req, res) => {
  */
 const deletePhoto = async (req, res) => {
   try {
-    const photo = await Photo.findById(req.params.id);
+    const photo = await Photo.findOne({ 
+      _id: req.params.id, 
+      userId: req.user.userId 
+    });
     
     if (!photo) {
       return res.status(404).json(formatError('Photo non trouvée'));

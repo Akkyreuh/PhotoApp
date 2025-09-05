@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { PhotoAPI } from '@/services/api';
 import { useThemeColor } from '@/hooks/useThemeColor';
+import AuthenticatedImage from '@/components/AuthenticatedImage';
 
 export default function MapScreen() {
   const backgroundColor = useThemeColor({ light: '#fff', dark: '#000' }, 'background');
@@ -120,6 +121,7 @@ export default function MapScreen() {
               }}
               title={marker.title}
               description={`Photo du ${new Date(marker.timestamp).toLocaleDateString()}`}
+              tracksViewChanges={false}
             >
               <Callout>
                 <View style={styles.calloutContainer}>
@@ -127,6 +129,12 @@ export default function MapScreen() {
                   <Text style={styles.calloutDate}>
                     {new Date(marker.timestamp).toLocaleDateString('fr-FR')}
                   </Text>
+                  {marker.thumbnailUrl && (
+                    <AuthenticatedImage 
+                      path={marker.thumbnailUrl}
+                      style={styles.calloutImage}
+                    />
+                  )}
                 </View>
               </Callout>
             </Marker>
@@ -192,5 +200,12 @@ const styles = StyleSheet.create({
   calloutDate: {
     fontSize: 14,
     color: '#666',
+    marginBottom: 8,
+  },
+  calloutImage: {
+    width: 180,
+    height: 120,
+    borderRadius: 4,
+    marginTop: 8,
   },
 });

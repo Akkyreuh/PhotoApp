@@ -1,6 +1,6 @@
-import { Tabs, Redirect } from 'expo-router';
-import React from 'react';
-import { Platform } from 'react-native';
+import { Tabs, useRouter } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Platform, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { HapticTab } from '@/components/HapticTab';
@@ -8,9 +8,32 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
+
+  // Rediriger vers login si non authentifié
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      // Utiliser setTimeout pour éviter les boucles infinies
+      setTimeout(() => {
+        router.replace('/login');
+      }, 100);
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  // Afficher un écran de chargement pendant l'initialisation
+  if (isLoading) {
+    return <View style={{ flex: 1 }} />;
+  }
+
+  // Si pas authentifié, ne pas afficher les tabs (la redirection va se faire)
+  if (!isAuthenticated) {
+    return <View style={{ flex: 1 }} />;
+  }
 
   return (
     <Tabs
@@ -55,8 +78,15 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Ionicons name="map" size={24} color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profil',
+          tabBarIcon: ({ color }) => <Ionicons name="person" size={24} color={color} />,
+        }}
+      />
       
-      {/* Redirection pour les anciennes routes */}
+      <Tabs.Screen name="login" options={{ href: null }} />
       <Tabs.Screen name="index" options={{ href: null }} />
       <Tabs.Screen name="explore" options={{ href: null }} />
     </Tabs>

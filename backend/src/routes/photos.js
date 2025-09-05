@@ -5,13 +5,14 @@ const { getGridFSBucket } = require('../config/database');
 const Photo = require('../models/Photo');
 const sharp = require('sharp');
 const moment = require('moment');
+const { authenticateToken, optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
 // @desc    Upload une nouvelle photo
 // @route   POST /api/photos/upload
-// @access  Public
-router.post('/upload', upload.single('photo'), handleUploadError, async (req, res) => {
+// @access  Private
+router.post('/upload', authenticateToken, upload.single('photo'), handleUploadError, async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -47,6 +48,7 @@ router.post('/upload', upload.single('photo'), handleUploadError, async (req, re
       mimeType: gridfsFile.mimetype,
       size: gridfsFile.size,
       gridfsId: gridfsFile.id,
+      userId: req.user.userId, // Associer à l'utilisateur authentifié
       location: {
         latitude: parseFloat(latitude),
         longitude: parseFloat(longitude),
@@ -83,19 +85,22 @@ router.post('/upload', upload.single('photo'), handleUploadError, async (req, re
 
 // @desc    Récupérer les photos pour la carte
 // @route   GET /api/photos/map
-// @access  Public
-router.get('/map', async (req, res) => {
+// @access  Private
+router.get('/map', authenticateToken, async (req, res) => {
   try {
-    // Filtres optionnels
-    let query = {};
+    // Récupérer les paramètres de requête
+    const { sw, ne } = req.query; // southwest et northeast bounds
     
-    // Filtre par zone géographique (bounding box)
-    if (req.query.northEast && req.query.southWest) {
-      const ne = req.query.northEast.split(',').map(coord => parseFloat(coord));
-      const sw = req.query.southWest.split(',').map(coord => parseFloat(coord));
+    // Construction de la requête - filtrer par utilisateur authentifié
+    let query = { userId: req.user.userId };
+    
+    // Filtre par zone géographique si fournie
+    if (sw && ne) {
+      const southwest = sw.split(',').map(parseFloat);
+      const northeast = ne.split(',').map(parseFloat);
       
-      query['location.latitude'] = { $gte: sw[0], $lte: ne[0] };
-      query['location.longitude'] = { $gte: sw[1], $lte: ne[1] };
+      query['location.latitude'] = { $gte: southwest[0], $lte: northeast[0] };
+      query['location.longitude'] = { $gte: southwest[1], $lte: northeast[1] };
     }
     
     // Filtre par période
@@ -141,59 +146,63 @@ router.get('/map', async (req, res) => {
 
 // @desc    Récupérer les photos pour le calendrier
 // @route   GET /api/photos/calendar
-// @access  Public
-router.get('/calendar', async (req, res) => {
+// Récupérer les données pour le calendrier
+router.get('/calendar', authenticateToken, async (req, res) => {
   try {
-    const year = parseInt(req.query.year) || new Date().getFullYear();
-    const month = req.query.month ? parseInt(req.query.month) : null;
+    const { year, month } = req.query;
     
-    // Construction de la requête de date
+    // Construire les dates de début et fin
     let startDate, endDate;
     
-    if (month !== null) {
+    if (year && month !== undefined) {
       // Mois spécifique
-      startDate = new Date(year, month, 1);
-      endDate = new Date(year, month + 1, 0, 23, 59, 59);
+      startDate = new Date(parseInt(year), parseInt(month), 1);
+      endDate = new Date(parseInt(year), parseInt(month) + 1, 0, 23, 59, 59);
+    } else if (year) {
+      // Année entière
+      startDate = new Date(parseInt(year), 0, 1);
+      endDate = new Date(parseInt(year), 11, 31, 23, 59, 59);
     } else {
-      // Année complète
-      startDate = new Date(year, 0, 1);
-      endDate = new Date(year, 11, 31, 23, 59, 59);
+      // Par défaut, mois actuel
+      const now = new Date();
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
     }
 
-    const photos = await Photo.find({
+    let query = {
+      userId: req.user.userId,
       timestamp: {
         $gte: startDate,
         $lte: endDate
       }
-    })
-    .sort({ timestamp: -1 })
-    .select('originalName timestamp location');
+    };
+
+    const photos = await Photo.find(query)
+    .select('timestamp originalName thumbnailUrl')
+    .sort({ timestamp: -1 });
 
     // Grouper les photos par date
     const photosByDate = {};
-    
     photos.forEach(photo => {
-      const dateKey = moment(photo.timestamp).format('YYYY-MM-DD');
-      
+      const dateKey = photo.timestamp.toISOString().split('T')[0];
       if (!photosByDate[dateKey]) {
-        photosByDate[dateKey] = {
-          date: dateKey,
-          count: 0,
-          photos: []
-        };
+        photosByDate[dateKey] = [];
       }
-      
-      photosByDate[dateKey].count++;
-      photosByDate[dateKey].photos.push({
+      photosByDate[dateKey].push({
         id: photo._id,
         originalName: photo.originalName,
-        timestamp: photo.timestamp,
-        thumbnailUrl: `/api/photos/${photo._id}/thumbnail?size=150`
+        thumbnailUrl: photo.thumbnailUrl,
+        timestamp: photo.timestamp
       });
     });
 
-    // Convertir en tableau et trier par date
-    const calendarData = Object.values(photosByDate)
+    // Convertir en format attendu par le calendrier
+    const calendarData = Object.keys(photosByDate)
+      .map(date => ({
+        date,
+        photos: photosByDate[date],
+        count: photosByDate[date].length
+      }))
       .sort((a, b) => new Date(b.date) - new Date(a.date));
 
     res.json({
@@ -220,15 +229,15 @@ router.get('/calendar', async (req, res) => {
 
 // @desc    Récupérer toutes les photos avec filtres
 // @route   GET /api/photos
-// @access  Public
-router.get('/', async (req, res) => {
+// @access  Private
+router.get('/', authenticateToken, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
-    // Construction de la requête avec filtres
-    let query = {};
+    // Construction de la requête avec filtres - filtrer par utilisateur authentifié
+    let query = { userId: req.user.userId };
 
     // Filtre par date
     if (req.query.startDate || req.query.endDate) {
@@ -291,10 +300,46 @@ router.get('/', async (req, res) => {
   }
 });
 
+// @desc    Récupérer toutes les photos avec pagination
+router.get('/', optionalAuth, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    // Si utilisateur connecté, filtrer par ses photos, sinon toutes les photos
+    const filter = req.user ? { userId: req.user.userId } : {};
+    
+    const photos = await Photo.find(filter)
+      .sort({ timestamp: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await Photo.countDocuments(filter);
+
+    res.json({
+      success: true,
+      data: photos,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Erreur récupération photos:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Erreur lors de la récupération des photos' }
+    });
+  }
+});
+
 // @desc    Récupérer une photo spécifique
 // @route   GET /api/photos/:id
-// @access  Public
-router.get('/:id', async (req, res) => {
+// @access  Private
+router.get('/:id', authenticateToken, async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({
@@ -303,7 +348,10 @@ router.get('/:id', async (req, res) => {
       });
     }
 
-    const photo = await Photo.findById(req.params.id).select('-gridfsId');
+    const photo = await Photo.findOne({ 
+      _id: req.params.id, 
+      userId: req.user.userId 
+    }).select('-gridfsId');
     
     if (!photo) {
       return res.status(404).json({
@@ -328,8 +376,8 @@ router.get('/:id', async (req, res) => {
 
 // @desc    Télécharger le fichier photo original
 // @route   GET /api/photos/:id/download
-// @access  Public
-router.get('/:id/download', async (req, res) => {
+// @access  Private
+router.get('/:id/download', authenticateToken, async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({
@@ -338,7 +386,10 @@ router.get('/:id/download', async (req, res) => {
       });
     }
 
-    const photo = await Photo.findById(req.params.id);
+    const photo = await Photo.findOne({ 
+      _id: req.params.id, 
+      userId: req.user.userId 
+    });
     
     if (!photo) {
       return res.status(404).json({
@@ -376,8 +427,8 @@ router.get('/:id/download', async (req, res) => {
 
 // @desc    Télécharger une miniature de la photo
 // @route   GET /api/photos/:id/thumbnail
-// @access  Public
-router.get('/:id/thumbnail', async (req, res) => {
+// @access  Private
+router.get('/:id/thumbnail', authenticateToken, async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({
@@ -386,7 +437,10 @@ router.get('/:id/thumbnail', async (req, res) => {
       });
     }
 
-    const photo = await Photo.findById(req.params.id);
+    const photo = await Photo.findOne({ 
+      _id: req.params.id, 
+      userId: req.user.userId 
+    });
     
     if (!photo) {
       return res.status(404).json({

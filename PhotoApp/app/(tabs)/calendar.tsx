@@ -1,11 +1,10 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, FlatList, ActivityIndicator, Modal, Dimensions } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Dimensions, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { PhotoAPI, Photo } from '@/services/api';
-import { Image } from 'expo-image';
-import { API_BASE_URL, API_URL } from '@/services/api';
+import { PhotoAPI, API_BASE_URL } from '@/services/api';
 import { useThemeColor } from '@/hooks/useThemeColor';
+import AuthenticatedImage from '@/components/AuthenticatedImage';
 
 // Interface pour représenter un jour dans le calendrier
 interface CalendarDay {
@@ -257,12 +256,13 @@ export default function CalendarScreen() {
                         style={styles.photoItem}
                         onPress={() => openPhoto(item)}
                       >
-                        <Image
-                          source={{ uri: `${API_BASE_URL}${item.thumbnailUrl}` }}
-                          style={styles.photoThumbnail}
-                          contentFit="cover"
-                          transition={200}
-                        />
+                        {item.thumbnailUrl && (
+                          <AuthenticatedImage
+                            path={item.thumbnailUrl}
+                            style={styles.photoThumbnail}
+                            contentFit="cover"
+                          />
+                        )}
                         <Text style={[styles.photoTime, { color: textColor }]}>
                           {new Date(item.timestamp).toLocaleTimeString('fr-FR', { 
                             hour: '2-digit', 
@@ -302,9 +302,9 @@ export default function CalendarScreen() {
             <Ionicons name="close-circle" size={36} color="white" />
           </TouchableOpacity>
           
-          {selectedPhoto && (
-            <Image
-              source={{ uri: `${API_BASE_URL}${selectedPhoto.downloadUrl}` }}
+          {selectedPhoto && selectedPhoto.downloadUrl && (
+            <AuthenticatedImage
+              path={selectedPhoto.downloadUrl}
               style={styles.fullImage}
               contentFit="contain"
             />
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   calendar: {
-    flex: 1,
+    flex: 0.85, // Ajuster pour 5 lignes
   },
   dayCell: {
     flex: 1,
@@ -413,9 +413,10 @@ const styles = StyleSheet.create({
   },
   photosSection: {
     padding: 15,
+    paddingBottom: 100, // Espace pour la navbar
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
-    maxHeight: 200,
+    maxHeight: 280, // Plus d'espace
   },
   photosSectionTitle: {
     fontSize: 16,

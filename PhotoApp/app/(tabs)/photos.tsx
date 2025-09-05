@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Dimensions, RefreshControl, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { PhotoAPI, Photo, API_URL, API_BASE_URL } from '@/services/api';
+import AuthenticatedImage from '@/components/AuthenticatedImage';
 
 import { useThemeColor } from '@/hooks/useThemeColor';
 
@@ -46,7 +46,7 @@ export default function PhotosScreen() {
       
       setPhotos(result.data);
     } catch (error) {
-      console.error('❌ Erreur chargement photos:', error);
+      console.error('Erreur chargement photos:', error);
     } finally {
       setLoading(false);
     }
@@ -66,18 +66,12 @@ export default function PhotosScreen() {
 
   // Rendu d'une vignette d'image
   const renderPhotoItem = ({ item }: { item: Photo }) => {
-    const imageUri = `${API_URL}${item.thumbnailUrl}`;
-    console.log('🖼️ Rendu photo:', item.id, 'URI:', imageUri);
-    
     return (
       <TouchableOpacity onPress={() => openImage(item)} style={styles.photoItem}>
-        <Image
-          source={{ uri: `${API_BASE_URL}${item.thumbnailUrl}` }}
+        <AuthenticatedImage
+          path={item.thumbnailUrl}
           style={styles.thumbnail}
           contentFit="cover"
-          transition={200}
-          onLoad={() => console.log('✅ Image chargée:', item.id)}
-          onError={(error) => console.log('❌ Erreur image:', item.id, error)}
         />
       </TouchableOpacity>
     );
@@ -146,8 +140,8 @@ export default function PhotosScreen() {
           </TouchableOpacity>
           
           {selectedImage && (
-            <Image
-              source={{ uri: `${API_BASE_URL}${selectedImage.downloadUrl}` }}
+            <AuthenticatedImage
+              path={selectedImage.downloadUrl}
               style={styles.fullImage}
               contentFit="contain"
             />

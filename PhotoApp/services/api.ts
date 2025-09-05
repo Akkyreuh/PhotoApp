@@ -5,11 +5,19 @@
 // Vous pouvez trouver votre IP avec: ipconfig (Windows) ou ifconfig (Mac/Linux)
 
 // TODO: Remplacez par votre IP locale ou utilisez des variables d'environnement
-const API_HOST = process.env.EXPO_PUBLIC_API_HOST || '10.0.2.2'; // Par défaut émulateur Android
+const API_HOST = process.env.EXPO_PUBLIC_API_HOST || '192.168.1.62'; // IP locale
 const API_PORT = process.env.EXPO_PUBLIC_API_PORT || '3000';
 
 export const API_BASE_URL = `http://${API_HOST}:${API_PORT}`;
 export const API_URL = `${API_BASE_URL}/api`; // URL complète de l'API
+
+// Debug: afficher l'URL de l'API au démarrage
+console.log('=== CONFIGURATION API ===');
+console.log('API_HOST:', API_HOST);
+console.log('API_PORT:', API_PORT);
+console.log('API_BASE_URL:', API_BASE_URL);
+console.log('API_URL:', API_URL);
+console.log('========================');
 
 // Interface pour les photos
 export interface Photo {
@@ -45,6 +53,9 @@ export class PhotoAPI {
    */
   static async uploadPhoto(photoData: PhotoUploadData): Promise<Photo> {
     try {
+      // Importer le service d'authentification
+      const { authService } = await import('./auth');
+      
       console.log('Début upload photo vers:', `${API_URL}/photos/upload`);
       console.log('Données photo:', { 
         uri: photoData.uri, 
@@ -76,11 +87,19 @@ export class PhotoAPI {
         formData.append('tags', photoData.tags.join(','));
       }
 
+      // Récupérer le token d'authentification
+      const token = authService.getToken();
+      const headers: Record<string, string> = {};
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       console.log('Envoi de la requête...');
       const response = await fetch(`${API_URL}/photos/upload`, {
         method: 'POST',
+        headers,
         body: formData,
-        // Ne pas définir Content-Type manuellement pour FormData
       });
 
       console.log('Réponse reçue:', response.status, response.statusText);
@@ -112,6 +131,9 @@ export class PhotoAPI {
     tags?: string[];
   }): Promise<{ data: Photo[]; pagination: any }> {
     try {
+      // Importer le service d'authentification
+      const { authService } = await import('./auth');
+      
       const queryParams = new URLSearchParams();
       
       if (params?.page) queryParams.append('page', params.page.toString());
@@ -120,7 +142,17 @@ export class PhotoAPI {
       if (params?.endDate) queryParams.append('endDate', params.endDate);
       if (params?.tags) queryParams.append('tags', params.tags.join(','));
 
-      const response = await fetch(`${API_URL}/photos?${queryParams}`);
+      // Récupérer le token d'authentification
+      const token = authService.getToken();
+      const headers: Record<string, string> = {};
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${API_URL}/photos?${queryParams}`, {
+        headers
+      });
       
       if (!response.ok) {
         throw new Error('Erreur lors de la récupération des photos');
@@ -146,6 +178,9 @@ export class PhotoAPI {
     southWest: string;
   }): Promise<any[]> {
     try {
+      // Importer le service d'authentification
+      const { authService } = await import('./auth');
+      
       const queryParams = new URLSearchParams();
       
       if (bounds) {
@@ -153,7 +188,17 @@ export class PhotoAPI {
         queryParams.append('southWest', bounds.southWest);
       }
 
-      const response = await fetch(`${API_URL}/photos/map?${queryParams}`);
+      // Récupérer le token d'authentification
+      const token = authService.getToken();
+      const headers: Record<string, string> = {};
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${API_URL}/photos/map?${queryParams}`, {
+        headers
+      });
       
       if (!response.ok) {
         throw new Error('Erreur lors de la récupération des données carte');
@@ -173,12 +218,25 @@ export class PhotoAPI {
    */
   static async getPhotosForCalendar(year?: number, month?: number): Promise<any[]> {
     try {
+      // Importer le service d'authentification
+      const { authService } = await import('./auth');
+      
       const queryParams = new URLSearchParams();
       
       if (year) queryParams.append('year', year.toString());
       if (month !== undefined) queryParams.append('month', month.toString());
 
-      const response = await fetch(`${API_URL}/photos/calendar?${queryParams}`);
+      // Récupérer le token d'authentification
+      const token = authService.getToken();
+      const headers: Record<string, string> = {};
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${API_URL}/photos/calendar?${queryParams}`, {
+        headers
+      });
       
       if (!response.ok) {
         throw new Error('Erreur lors de la récupération des données calendrier');
@@ -198,8 +256,20 @@ export class PhotoAPI {
    */
   static async deletePhoto(photoId: string): Promise<void> {
     try {
+      // Importer le service d'authentification
+      const { authService } = await import('./auth');
+      
+      // Récupérer le token d'authentification
+      const token = authService.getToken();
+      const headers: Record<string, string> = {};
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`${API_URL}/photos/${photoId}`, {
         method: 'DELETE',
+        headers
       });
 
       if (!response.ok) {
@@ -210,6 +280,40 @@ export class PhotoAPI {
     } catch (error) {
       console.error('Erreur suppression photo:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Créer une URL d'image avec authentification
+   * Note: Les images nécessitent des headers Authorization, pas des query params
+   */
+  static getAuthenticatedImageUrl(path: string): string {
+    // Vérifier que path est défini et est une string
+    if (!path || typeof path !== 'string') {
+      console.warn('Path invalide pour getAuthenticatedImageUrl:', path);
+      return '';
+    }
+    
+    // Vérifier si le chemin commence déjà par /api
+    if (path.startsWith('/api/')) {
+      return `${API_BASE_URL}${path}`;
+    } else {
+      // S'assurer que le chemin commence par /
+      const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+      return `${API_URL}${normalizedPath}`;
+    }
+  }
+
+  /**
+   * Créer les headers avec authentification pour les images
+   */
+  static async getAuthHeaders(): Promise<Record<string, string>> {
+    try {
+      const { authService } = await import('./auth');
+      const token = authService.getToken();
+      return token ? { 'Authorization': `Bearer ${token}` } : {};
+    } catch (error) {
+      return {};
     }
   }
 }

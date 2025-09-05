@@ -74,6 +74,12 @@ const photoSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     required: true
   },
+  // Référence vers l'utilisateur propriétaire (optionnel pour compatibilité)
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false
+  },
   // Métadonnées optionnelles
   metadata: {
     width: Number,

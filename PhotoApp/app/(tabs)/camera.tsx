@@ -26,7 +26,6 @@ export default function CameraScreen() {
   } | null>(null);
   const cameraRef = useRef<CameraView>(null);
 
-  // Demander les permissions au chargement
   useEffect(() => {
     requestPermissions();
   }, []);
